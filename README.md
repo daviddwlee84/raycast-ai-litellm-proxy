@@ -24,16 +24,23 @@ Use any LiteLLM model in Raycast AI without a subscription.
    > BASE_URL=http://192.168.1.X:4000/v1  # Replace X with your IP
    > ```
 
-3. **Start and connect**:
+3. **Start proxy**:
    ```bash
    docker compose up -d
    ```
-   
-   In Raycast Settings → Extensions → AI:
-   - Set **Ollama Host**: `localhost:11435`
-   - Enable **Ollama** and **AI Extensions**
 
-**Done!** Your models now appear in Raycast AI.
+4. **Configure Raycast**:
+   
+   In Raycast Settings → **AI**:
+   
+   **Local Models section:**
+   - Set **Ollama Host**: `localhost:11435`
+   - Click **Sync Models** to discover your LiteLLM models
+   
+   **Experiments section:**
+   - Scroll down and enable **AI Extensions for Ollama Models**
+
+**Done!** Your LiteLLM models now appear in Raycast AI.
 
 ## Troubleshooting
 
