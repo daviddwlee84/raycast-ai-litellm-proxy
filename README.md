@@ -2,6 +2,8 @@
 
 Connect any LiteLLM model to Raycast AI instantly. No Raycast Pro required.
 
+**Works with**: Local models, hosted APIs, and self-hosted servers. Automatically discovers models with vision and tool calling support.
+
 > **Built on**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Thank you for the foundation!
 
 ## Quick Start (2 minutes)
@@ -53,13 +55,22 @@ PORT=3000                        # Proxy port (default: 3000)
 MODEL_REFRESH_INTERVAL=300000    # Model refresh (default: 5 min)
 ```
 
+## How It Works
+
+```
+Raycast AI → Proxy (localhost:11435) → LiteLLM Server → Your Models
+          Ollama API              OpenAI API
+```
+
+The proxy automatically discovers available models every 5 minutes and translates between Raycast's Ollama-compatible format and LiteLLM's OpenAI format.
+
 ## What You Get
 
-- **All LiteLLM models** in Raycast automatically
-- **Vision models** work with image inputs
-- **Tool calling** and AI Extensions supported
-- **Zero maintenance** - models auto-update every 5 minutes
-- **Production ready** - memory leak fixes, error recovery
+- **Auto-discovery** - All LiteLLM models appear in Raycast automatically
+- **Smart detection** - Vision and tool calling capabilities detected per model
+- **Streaming responses** - Real-time chat with connection keepalive
+- **Error recovery** - Graceful fallbacks when LiteLLM is unavailable
+- **Zero maintenance** - Models refresh automatically, memory optimized
 
 ---
 
