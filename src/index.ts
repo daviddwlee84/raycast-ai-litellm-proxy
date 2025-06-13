@@ -10,7 +10,7 @@ async function main() {
   const logger = makeLogger();
 
   // Load models from LiteLLM
-  const models = await loadModels(config.baseUrl, config.apiKey);
+  const models = await loadModels(config.baseUrl, config.apiKey, config.modelRefreshInterval);
 
   const middleware = makeMiddleware(logger);
   const openai = new OpenAI({

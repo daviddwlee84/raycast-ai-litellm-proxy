@@ -31,16 +31,18 @@ const DetailedModelInfo = z.object({
   litellm_params: z.object({
     model: z.string(),
   }),
-  model_info: z.object({
-    max_tokens: z.number().optional(),
-    max_input_tokens: z.number().optional(),
-    max_output_tokens: z.number().optional(),
-    litellm_provider: z.string().optional(),
-    mode: z.string().optional(),
-    supports_vision: z.boolean().nullable().optional(),
-    supports_function_calling: z.boolean().nullable().optional(),
-    supports_tool_choice: z.boolean().nullable().optional(),
-  }).optional(),
+  model_info: z
+    .object({
+      max_tokens: z.number().optional(),
+      max_input_tokens: z.number().optional(),
+      max_output_tokens: z.number().optional(),
+      litellm_provider: z.string().optional(),
+      mode: z.string().optional(),
+      supports_vision: z.boolean().nullable().optional(),
+      supports_function_calling: z.boolean().nullable().optional(),
+      supports_tool_choice: z.boolean().nullable().optional(),
+    })
+    .optional(),
 });
 
 const DetailedLiteLLMResponse = z.object({
@@ -73,9 +75,11 @@ function hasVisionCapability(modelId: string): boolean {
   return VISION_MODEL_PATTERNS.some((pattern) => pattern.test(modelId));
 }
 
-function detectCapabilitiesFromLiteLLM(modelInfo?: z.infer<typeof DetailedModelInfo>['model_info']): ModelConfig['capabilities'] {
+function detectCapabilitiesFromLiteLLM(
+  modelInfo?: z.infer<typeof DetailedModelInfo>['model_info'],
+): ModelConfig['capabilities'] {
   const capabilities: ModelConfig['capabilities'] = [];
-  
+
   // Use LiteLLM's actual capability flags (most reliable)
   if (modelInfo) {
     if (modelInfo.supports_function_calling === true || modelInfo.supports_tool_choice === true) {
@@ -85,23 +89,29 @@ function detectCapabilitiesFromLiteLLM(modelInfo?: z.infer<typeof DetailedModelI
       capabilities.push('vision');
     }
   }
-  
+
   // If we don't have any capabilities detected, default to tools for chat models
   if (capabilities.length === 0) {
     capabilities.push('tools');
   }
-  
+
   return capabilities;
 }
 
-function detectCapabilitiesFromProvider(modelName: string, provider?: string): ModelConfig['capabilities'] {
+function detectCapabilitiesFromProvider(
+  modelName: string,
+  provider?: string,
+): ModelConfig['capabilities'] {
   const capabilities: ModelConfig['capabilities'] = ['tools']; // Default for chat models
-  
+
   // Provider-based detection (more reliable than pattern matching)
   if (provider) {
     switch (provider.toLowerCase()) {
       case 'openai':
-        if (modelName.includes('gpt-4') && (modelName.includes('vision') || modelName.includes('4o'))) {
+        if (
+          modelName.includes('gpt-4') &&
+          (modelName.includes('vision') || modelName.includes('4o'))
+        ) {
           capabilities.push('vision');
         }
         break;
@@ -112,7 +122,10 @@ function detectCapabilitiesFromProvider(modelName: string, provider?: string): M
         break;
       case 'vertex_ai':
       case 'gemini':
-        if (modelName.includes('gemini') && (modelName.includes('pro') || modelName.includes('flash'))) {
+        if (
+          modelName.includes('gemini') &&
+          (modelName.includes('pro') || modelName.includes('flash'))
+        ) {
           capabilities.push('vision');
         }
         break;
@@ -123,7 +136,7 @@ function detectCapabilitiesFromProvider(modelName: string, provider?: string): M
       capabilities.push('vision');
     }
   }
-  
+
   return capabilities;
 }
 
@@ -157,22 +170,24 @@ function getModelMetadata(modelId: string): {
   return { contextLength, capabilities };
 }
 
-function convertDetailedLiteLLMToModelConfig(response: any): ModelConfig[] {
+function convertDetailedLiteLLMToModelConfig(response: unknown): ModelConfig[] {
   try {
     const parsedResponse = DetailedLiteLLMResponse.parse(response);
-    
+
     return parsedResponse.data.map((model) => {
       const modelInfo = model.model_info;
-      
+
       // Use LiteLLM's context length if available, otherwise fall back to our detection
-      const contextLength = modelInfo?.max_tokens || 
-                           modelInfo?.max_input_tokens || 
-                           getModelMetadata(model.model_name).contextLength;
-      
+      const contextLength =
+        modelInfo?.max_tokens ||
+        modelInfo?.max_input_tokens ||
+        getModelMetadata(model.model_name).contextLength;
+
       // Use LiteLLM's capability flags (most reliable), with fallback to provider detection
-      const capabilities = detectCapabilitiesFromLiteLLM(modelInfo) || 
-                          detectCapabilitiesFromProvider(model.model_name, modelInfo?.litellm_provider);
-      
+      const capabilities =
+        detectCapabilitiesFromLiteLLM(modelInfo) ||
+        detectCapabilitiesFromProvider(model.model_name, modelInfo?.litellm_provider);
+
       return {
         name: model.model_name,
         id: model.litellm_params.model,
@@ -226,11 +241,12 @@ async function fetchModelsFromLiteLLM(baseUrl: string, apiKey?: string): Promise
 
     if (response.ok) {
       const data = await response.json();
-      console.log(`Successfully fetched detailed model info for ${Array.isArray((data as any).data) ? (data as any).data.length : 0} models`);
+      const modelCount = Array.isArray(data?.data) ? data.data.length : 0;
+      console.log(`Successfully fetched detailed model info for ${modelCount} models`);
       // If we get detailed info, use it
       return convertDetailedLiteLLMToModelConfig(data);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log('Model info endpoint not available, falling back to basic /models');
   }
 
@@ -255,7 +271,8 @@ async function fetchModelsFromLiteLLM(baseUrl: string, apiKey?: string): Promise
     }
 
     const data = await response.json();
-    console.log(`Fallback to basic /models endpoint, found ${Array.isArray((data as any).data) ? (data as any).data.length : 0} models`);
+    const modelCount = Array.isArray(data?.data) ? data.data.length : 0;
+    console.log(`Fallback to basic /models endpoint, found ${modelCount} models`);
     const parsedResponse = LiteLLMResponse.parse(data);
 
     return convertLiteLLMToModelConfig(parsedResponse.data);
@@ -276,14 +293,16 @@ function getFallbackModels(): ModelConfig[] {
   ];
 }
 
-export async function loadModels(baseUrl: string, apiKey?: string): Promise<ModelConfig[]> {
-  const refreshInterval = parseInt(
-    process.env.MODEL_REFRESH_INTERVAL || DEFAULT_REFRESH_INTERVAL.toString(),
-  );
+export async function loadModels(
+  baseUrl: string,
+  apiKey?: string,
+  refreshInterval?: number,
+): Promise<ModelConfig[]> {
+  const modelRefreshInterval = refreshInterval || DEFAULT_REFRESH_INTERVAL;
   const now = Date.now();
 
   // Return cached models if still valid
-  if (modelCache && now - modelCache.lastFetch < refreshInterval) {
+  if (modelCache && now - modelCache.lastFetch < modelRefreshInterval) {
     return modelCache.models;
   }
 
@@ -294,13 +313,23 @@ export async function loadModels(baseUrl: string, apiKey?: string): Promise<Mode
     modelCache = {
       models,
       lastFetch: now,
-      ttl: refreshInterval,
+      ttl: modelRefreshInterval,
     };
 
     console.log(`Successfully loaded ${models.length} models from LiteLLM`);
     return models;
   } catch (error) {
-    console.error('Failed to load models from LiteLLM, using fallback:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Failed to load models from LiteLLM:', errorMessage);
+
+    // Check if it's a connection error
+    if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
+      console.error(`Cannot connect to LiteLLM at ${baseUrl}. Is your LiteLLM server running?`);
+    } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      console.error('Authentication failed. Check your API_KEY in .env file');
+    } else if (errorMessage.includes('404')) {
+      console.error('LiteLLM endpoints not found. Check your BASE_URL in .env file');
+    }
 
     // If we have cached models, use them even if expired
     if (modelCache?.models) {

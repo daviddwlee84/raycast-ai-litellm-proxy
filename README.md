@@ -1,16 +1,17 @@
 # Raycast AI LiteLLM Proxy
 
-Connect your LiteLLM instance to Raycast AI. Use any model from OpenAI, Anthropic, Google, OpenRouter, and more with your own API keys.
+Connect your LiteLLM instance to Raycast AI. Use any model supported by LiteLLM with your own API keys.
 
-✨ **Benefits**: No Raycast Pro required • Dynamic model discovery with accurate metadata • Automatic capability detection • Works with AI Chat, Commands, and Quick AI
+**Benefits**: No Raycast Pro required, dynamic model discovery, works with AI Chat, Commands, and Quick AI
 
-> **🔗 Forked from**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Enhanced for LiteLLM with zero-maintenance model detection
+> **Forked from**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Enhanced for LiteLLM with zero-maintenance model detection
 
-## Setup
+## Quick Start
 
 **Prerequisites**: Docker, running LiteLLM server, Raycast
 
 1. **Clone and configure**:
+
    ```bash
    git clone https://github.com/d-cu/raycast-ai-litellm-proxy.git
    cd raycast-ai-litellm-proxy
@@ -18,15 +19,14 @@ Connect your LiteLLM instance to Raycast AI. Use any model from OpenAI, Anthropi
    ```
 
 2. **Edit `.env`**:
+
    ```bash
    API_KEY=your-litellm-generated-key-here
    BASE_URL=http://host.docker.internal:4000/v1
-   PORT=3000  # Optional: proxy port (default: 3000)
-   MODEL_REFRESH_INTERVAL=300000  # Optional: model cache refresh (default: 5 minutes)
-   PING_INTERVAL=10000  # Optional: streaming keep-alive (default: 10 seconds)
    ```
 
 3. **Start proxy**:
+
    ```bash
    docker compose up -d
    ```
@@ -36,71 +36,64 @@ Connect your LiteLLM instance to Raycast AI. Use any model from OpenAI, Anthropi
    - Set **Ollama Host** to: `localhost:11435`
    - Enable **Ollama** and **AI Extensions**
 
-Your LiteLLM models will now appear in Raycast!
+Your LiteLLM models will now appear in Raycast.
+
+## Configuration
+
+All settings are optional except `API_KEY` and `BASE_URL`:
+
+```bash
+API_KEY=your-litellm-generated-key-here
+BASE_URL=http://host.docker.internal:4000/v1
+PORT=3000                        # Proxy port (default: 3000)
+MODEL_REFRESH_INTERVAL=300000    # Model cache refresh in ms (default: 5 minutes)
+PING_INTERVAL=10000              # Streaming keep-alive in ms (default: 10 seconds)
+```
 
 ## Troubleshooting
 
 - **Only seeing "GPT-3.5 Turbo"?** Check `docker compose logs` - likely connection issue
 - **401 Unauthorized?** Verify your `API_KEY` in `.env`
 - **Connection refused?** Use your IP instead: `BASE_URL=http://192.168.1.X:4000/v1`
-- **Models missing capabilities?** Restart proxy: `docker compose restart` (models refresh every 5 minutes)
+- **Models missing capabilities?** Restart proxy: `docker compose restart`
 - **Health check**: Visit `http://localhost:11435/health` to verify proxy status
 - **After changes**: Run `docker compose restart`
 
 ## Features
 
-### Supported:
-- **Dynamic Model Discovery**: Automatically detects all LiteLLM models
-- **Accurate Metadata**: Context lengths and capabilities from LiteLLM's authoritative data
-- **Vision Models**: GPT-4V, Claude-3, Gemini Pro (auto-detected from LiteLLM)
-- **Tool Calling**: AI Extensions, MCP servers, function calling
-- **Streaming Responses**: Real-time chat with configurable keep-alive
-- **Health Monitoring**: `/health` endpoint for status checks
-- **Hot Reloading**: New models appear automatically (5-minute refresh)
+**Supported:**
 
-### Not Supported:
-- Thinking process display (models work, just no UI)
-- Some remote tools like `@web` (use MCP alternatives)
+- Dynamic model discovery from LiteLLM
+- Accurate context lengths and capabilities
+- Vision models (automatically detected)
+- Tool calling and AI Extensions
+- Streaming responses
+- Health monitoring endpoint
 
-## Configuration
+**Not Supported:**
 
-### Automatic Model Detection
-The proxy uses LiteLLM's `/model/info` endpoint to automatically detect:
-- **Context lengths**: Exact values from LiteLLM (no hardcoded guesses)
-- **Capabilities**: Vision and tool support from model metadata
-- **Provider info**: Automatic provider-based capability enhancement
+- Thinking process display
+- Some remote tools like `@web`
 
-### Smart Caching
-- Models refresh every 5 minutes (configurable via `MODEL_REFRESH_INTERVAL`)
-- Graceful fallbacks if LiteLLM is temporarily unavailable
-- Maintains cached models during brief outages
+## Development
 
-### Zero Maintenance
-- **New models**: Automatically detected when added to LiteLLM
-- **Capability updates**: Existing models get new features without code changes
-- **No hardcoded patterns**: All metadata comes from LiteLLM's authoritative source
-
-## FAQ
-
-**Need Raycast Pro?** No, that's the point!
-
-**Deploy remotely?** Not recommended - no authentication implemented.
-
-**Need Ollama installed?** No, this proxy mimics Ollama's API.
-
-**Add/remove models?** Update your LiteLLM config and restart it. Models refresh automatically within 5 minutes.
-
-**Model capabilities wrong?** The proxy uses LiteLLM's authoritative data. If LiteLLM reports incorrect capabilities, that's an upstream issue.
+```bash
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run lint      # Check code style
+npm run format    # Format code
+npm run typecheck # Type checking
+```
 
 ## Attribution
 
-This project builds on the excellent foundation of [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen). 
+This project builds on [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen).
 
 **Key Enhancements:**
-- **Smart Model Detection**: Uses LiteLLM's `/model/info` endpoint for accurate metadata
-- **Zero Maintenance**: Eliminates hardcoded model patterns and manual updates  
-- **Health Monitoring**: Added `/health` endpoint for troubleshooting
-- **Enhanced Configuration**: Configurable refresh intervals and connection settings
-- **Robust Error Handling**: Multiple fallback layers for reliability
 
-🙏 Thank you [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) for the solid foundation!
+- Smart model detection using LiteLLM's `/model/info` endpoint
+- Zero maintenance with automatic model updates
+- Health monitoring and enhanced error handling
+- Configurable refresh intervals and connection settings
+
+Thank you [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) for the solid foundation!

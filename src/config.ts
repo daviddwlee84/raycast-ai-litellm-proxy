@@ -11,6 +11,7 @@ export const Config = z.object({
     .url('BASE_URL must be a valid URL (e.g., http://localhost:4000/v1)')
     .default('http://localhost:4000/v1'),
   pingInterval: z.coerce.number().int().positive().default(10000),
+  modelRefreshInterval: z.coerce.number().int().positive().default(300000),
 });
 export type Config = z.infer<typeof Config>;
 
@@ -21,5 +22,6 @@ export const getConfig = (): Config => {
     apiKey: process.env.API_KEY,
     baseUrl: process.env.BASE_URL,
     pingInterval: process.env.PING_INTERVAL,
+    modelRefreshInterval: process.env.MODEL_REFRESH_INTERVAL,
   });
 };
