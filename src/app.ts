@@ -3,18 +3,21 @@ import { Middleware } from './middleware';
 import { makeApiRoutes } from './routes/api';
 import { Config } from './config';
 import { ModelConfig } from './data/models';
+import { ModelStore } from './data/model-store';
+import { DEFAULT_JSON_LIMIT } from './constants';
 import OpenAI from 'openai';
 
 export interface AppContext {
   middleware: Middleware;
   config: Config;
   models: ModelConfig[];
+  modelStore: ModelStore;
   openai: OpenAI;
 }
 
 export function makeApp(ctx: AppContext): Express {
   const app = express();
-  app.use(express.json({ limit: '100mb' }));
+  app.use(express.json({ limit: DEFAULT_JSON_LIMIT }));
   app.use(ctx.middleware.logger);
 
   app.get('/health', (req, res) => {

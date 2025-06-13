@@ -1,5 +1,21 @@
 import crypto from 'crypto';
 import { z } from 'zod/v4';
+import {
+  DEFAULT_REFRESH_INTERVAL,
+  CONTEXT_LENGTHS,
+  FIXED_MODEL_SIZE,
+  DEFAULT_PARAMETER_SIZE,
+  DEFAULT_QUANTIZATION,
+  DEFAULT_FORMAT,
+  DEFAULT_FAMILY,
+  DEFAULT_EMBEDDING_LENGTH,
+  DEFAULT_PARAMETER_COUNT,
+} from '../constants';
+import {
+  LiteLLMConnectionError,
+  LiteLLMAuthError,
+  LiteLLMNotFoundError,
+} from '../errors/custom-errors';
 
 export const ModelConfig = z.object({
   name: z.string(),
@@ -49,7 +65,7 @@ const DetailedLiteLLMResponse = z.object({
   data: z.array(DetailedModelInfo),
 });
 
-// Model cache
+// Model cache with race condition protection
 interface ModelCache {
   models: ModelConfig[];
   lastFetch: number;
@@ -57,115 +73,21 @@ interface ModelCache {
 }
 
 let modelCache: ModelCache | null = null;
-const DEFAULT_REFRESH_INTERVAL = 300000; // 5 minutes
-const DEFAULT_CONTEXT_LENGTH = 4096;
-const DEFAULT_CAPABILITIES: ModelConfig['capabilities'] = ['tools'];
+let cacheUpdatePromise: Promise<ModelConfig[]> | null = null;
 
-// Vision model patterns
-const VISION_MODEL_PATTERNS = [
-  /gpt-4.*vision/i,
-  /gpt-4o/i,
-  /claude-3/i,
-  /gemini.*pro.*vision/i,
-  /gemini.*flash/i,
-  /llava/i,
-];
-
-function hasVisionCapability(modelId: string): boolean {
-  return VISION_MODEL_PATTERNS.some((pattern) => pattern.test(modelId));
-}
-
-function detectCapabilitiesFromLiteLLM(
-  modelInfo?: z.infer<typeof DetailedModelInfo>['model_info'],
-): ModelConfig['capabilities'] {
-  const capabilities: ModelConfig['capabilities'] = [];
-
-  // Use LiteLLM's actual capability flags (most reliable)
-  if (modelInfo) {
-    if (modelInfo.supports_function_calling === true || modelInfo.supports_tool_choice === true) {
-      capabilities.push('tools');
-    }
-    if (modelInfo.supports_vision === true) {
-      capabilities.push('vision');
-    }
-  }
-
-  // If we don't have any capabilities detected, default to tools for chat models
-  if (capabilities.length === 0) {
-    capabilities.push('tools');
-  }
-
-  return capabilities;
-}
-
-function detectCapabilitiesFromProvider(
-  modelName: string,
-  provider?: string,
-): ModelConfig['capabilities'] {
-  const capabilities: ModelConfig['capabilities'] = ['tools']; // Default for chat models
-
-  // Provider-based detection (more reliable than pattern matching)
-  if (provider) {
-    switch (provider.toLowerCase()) {
-      case 'openai':
-        if (
-          modelName.includes('gpt-4') &&
-          (modelName.includes('vision') || modelName.includes('4o'))
-        ) {
-          capabilities.push('vision');
-        }
-        break;
-      case 'anthropic':
-        if (modelName.includes('claude-3')) {
-          capabilities.push('vision');
-        }
-        break;
-      case 'vertex_ai':
-      case 'gemini':
-        if (
-          modelName.includes('gemini') &&
-          (modelName.includes('pro') || modelName.includes('flash'))
-        ) {
-          capabilities.push('vision');
-        }
-        break;
-    }
-  } else {
-    // Fallback to pattern matching if no provider info
-    if (hasVisionCapability(modelName)) {
-      capabilities.push('vision');
-    }
-  }
-
-  return capabilities;
-}
+import {
+  detectCapabilitiesFromLiteLLM,
+  detectCapabilitiesFromProvider,
+  getModelCapabilities,
+} from './capability-detection';
+import { getModelContextLength } from './context-length';
 
 function getModelMetadata(modelId: string): {
   contextLength: number;
   capabilities: ModelConfig['capabilities'];
 } {
-  const capabilities: ModelConfig['capabilities'] = [...DEFAULT_CAPABILITIES];
-
-  if (hasVisionCapability(modelId)) {
-    capabilities.push('vision');
-  }
-
-  // Set context length based on known model patterns
-  let contextLength = DEFAULT_CONTEXT_LENGTH;
-
-  if (modelId.includes('claude-3') || modelId.includes('claude-sonnet-4')) {
-    contextLength = 200000;
-  } else if (
-    modelId.includes('gpt-4o') ||
-    modelId.includes('deepseek') ||
-    modelId.includes('gpt-4o-mini')
-  ) {
-    contextLength = 128000;
-  } else if (modelId.includes('gemini')) {
-    contextLength = 1000000;
-  } else if (modelId.includes('gpt-4')) {
-    contextLength = 8192;
-  }
+  const contextLength = getModelContextLength(modelId);
+  const capabilities = getModelCapabilities(modelId);
 
   return { contextLength, capabilities };
 }
@@ -198,8 +120,15 @@ function convertDetailedLiteLLMToModelConfig(response: unknown): ModelConfig[] {
   } catch (error) {
     console.warn('Failed to parse detailed model info, falling back to basic parsing');
     // If parsing fails, treat as basic response
-    if (response.data && Array.isArray(response.data)) {
-      return convertLiteLLMToModelConfig(response.data);
+    if (
+      typeof response === 'object' &&
+      response !== null &&
+      'data' in response &&
+      Array.isArray((response as { data: unknown }).data)
+    ) {
+      return convertLiteLLMToModelConfig(
+        (response as { data: z.infer<typeof LiteLLMModel>[] }).data,
+      );
     }
     throw error;
   }
@@ -240,8 +169,10 @@ async function fetchModelsFromLiteLLM(baseUrl: string, apiKey?: string): Promise
     });
 
     if (response.ok) {
-      const data = await response.json();
-      const modelCount = Array.isArray(data?.data) ? data.data.length : 0;
+      const data: unknown = await response.json();
+      const modelCount = Array.isArray((data as { data?: unknown })?.data)
+        ? (data as { data: unknown[] }).data.length
+        : 0;
       console.log(`Successfully fetched detailed model info for ${modelCount} models`);
       // If we get detailed info, use it
       return convertDetailedLiteLLMToModelConfig(data);
@@ -270,8 +201,10 @@ async function fetchModelsFromLiteLLM(baseUrl: string, apiKey?: string): Promise
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
-    const modelCount = Array.isArray(data?.data) ? data.data.length : 0;
+    const data: unknown = await response.json();
+    const modelCount = Array.isArray((data as { data?: unknown })?.data)
+      ? (data as { data: unknown[] }).data.length
+      : 0;
     console.log(`Fallback to basic /models endpoint, found ${modelCount} models`);
     const parsedResponse = LiteLLMResponse.parse(data);
 
@@ -283,12 +216,31 @@ async function fetchModelsFromLiteLLM(baseUrl: string, apiKey?: string): Promise
 }
 
 function getFallbackModels(): ModelConfig[] {
+  // Better fallback with multiple commonly available models
   return [
     {
       name: 'GPT-3.5 Turbo',
       id: 'gpt-3.5-turbo',
-      contextLength: 4096,
+      contextLength: CONTEXT_LENGTHS.GPT_3_5_TURBO,
       capabilities: ['tools'],
+    },
+    {
+      name: 'GPT-4',
+      id: 'gpt-4',
+      contextLength: CONTEXT_LENGTHS.GPT_4,
+      capabilities: ['tools'],
+    },
+    {
+      name: 'GPT-4 Turbo',
+      id: 'gpt-4-turbo-preview',
+      contextLength: CONTEXT_LENGTHS.GPT_4O,
+      capabilities: ['tools', 'vision'],
+    },
+    {
+      name: 'Claude 3.5 Sonnet',
+      id: 'claude-3-5-sonnet-20241022',
+      contextLength: CONTEXT_LENGTHS.CLAUDE_3,
+      capabilities: ['tools', 'vision'],
     },
   ];
 }
@@ -306,6 +258,33 @@ export async function loadModels(
     return modelCache.models;
   }
 
+  // If another request is already updating the cache, wait for it
+  if (cacheUpdatePromise) {
+    try {
+      return await cacheUpdatePromise;
+    } catch {
+      // If the ongoing update fails, fall through to try again
+    }
+  }
+
+  // Start cache update
+  cacheUpdatePromise = updateModelCache(baseUrl, modelRefreshInterval, apiKey);
+
+  try {
+    const models = await cacheUpdatePromise;
+    return models;
+  } finally {
+    cacheUpdatePromise = null;
+  }
+}
+
+async function updateModelCache(
+  baseUrl: string,
+  modelRefreshInterval: number,
+  apiKey?: string,
+): Promise<ModelConfig[]> {
+  const now = Date.now();
+
   try {
     const models = await fetchModelsFromLiteLLM(baseUrl, apiKey);
 
@@ -322,13 +301,13 @@ export async function loadModels(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Failed to load models from LiteLLM:', errorMessage);
 
-    // Check if it's a connection error
+    // Throw specific error types based on the error
     if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
-      console.error(`Cannot connect to LiteLLM at ${baseUrl}. Is your LiteLLM server running?`);
+      throw new LiteLLMConnectionError(baseUrl, error instanceof Error ? error : undefined);
     } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
-      console.error('Authentication failed. Check your API_KEY in .env file');
+      throw new LiteLLMAuthError();
     } else if (errorMessage.includes('404')) {
-      console.error('LiteLLM endpoints not found. Check your BASE_URL in .env file');
+      throw new LiteLLMNotFoundError();
     }
 
     // If we have cached models, use them even if expired
@@ -361,15 +340,15 @@ export const generateModelsList = (models: ModelConfig[]) => {
       name: config.name,
       model: config.id,
       modified_at: new Date().toISOString(),
-      size: 500000000, // Fixed size
+      size: FIXED_MODEL_SIZE,
       digest: generateDigest(config.id),
       details: {
         parent_model: '',
-        format: 'gguf',
-        family: 'llama',
-        families: ['llama'],
-        parameter_size: '7B',
-        quantization_level: 'Q4_K_M',
+        format: DEFAULT_FORMAT,
+        family: DEFAULT_FAMILY,
+        families: [DEFAULT_FAMILY],
+        parameter_size: DEFAULT_PARAMETER_SIZE,
+        quantization_level: DEFAULT_QUANTIZATION,
       },
     })),
   };
@@ -388,18 +367,18 @@ export const generateModelInfo = (models: ModelConfig[], modelName: string) => {
     template: '{{ .Prompt }}',
     details: {
       parent_model: '',
-      format: 'gguf',
-      family: 'llama',
-      families: ['llama'],
-      parameter_size: '7B',
-      quantization_level: 'Q4_K_M',
+      format: DEFAULT_FORMAT,
+      family: DEFAULT_FAMILY,
+      families: [DEFAULT_FAMILY],
+      parameter_size: DEFAULT_PARAMETER_SIZE,
+      quantization_level: DEFAULT_QUANTIZATION,
     },
     model_info: {
-      'general.architecture': 'llama',
+      'general.architecture': DEFAULT_FAMILY,
       'general.file_type': 2,
-      'general.parameter_count': 7000000000,
+      'general.parameter_count': DEFAULT_PARAMETER_COUNT,
       'llama.context_length': config.contextLength,
-      'llama.embedding_length': 4096,
+      'llama.embedding_length': DEFAULT_EMBEDDING_LENGTH,
       'tokenizer.ggml.model': 'gpt2',
     },
     capabilities: ['completion', ...config.capabilities],

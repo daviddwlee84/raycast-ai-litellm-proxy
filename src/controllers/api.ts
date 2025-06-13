@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import { generateModelsList, generateModelInfo, findModelConfig } from '../data/models';
-import { HttpError } from '../errors';
+import { generateModelsList, generateModelInfo } from '../data/models';
+import { ModelNotFoundError } from '../errors/custom-errors';
 import { AppContext } from '../app';
 import {
   convertOllamaMessagesToOpenAI,
@@ -19,7 +19,12 @@ export interface ApiController {
   chatCompletion(req: Request, res: Response, next: NextFunction): Promise<void>;
 }
 
-export const makeApiController = ({ openai, models, config }: AppContext): ApiController => {
+export const makeApiController = ({
+  openai,
+  models,
+  modelStore,
+  config,
+}: AppContext): ApiController => {
   return {
     getTags: (req, res) => {
       res.send(generateModelsList(models));
@@ -34,10 +39,10 @@ export const makeApiController = ({ openai, models, config }: AppContext): ApiCo
     chatCompletion: async (req, res) => {
       const { messages, model: requestedModel, tools } = OllamaChatRequest.parse(req.body);
 
-      const modelConfig = findModelConfig(models, requestedModel);
+      const modelConfig = modelStore.findByName(requestedModel);
 
       if (!modelConfig) {
-        throw new HttpError(400, `Model ${requestedModel} not found`);
+        throw new ModelNotFoundError(requestedModel);
       }
 
       const openaiMessages = convertOllamaMessagesToOpenAI(messages);
@@ -66,7 +71,10 @@ export const makeApiController = ({ openai, models, config }: AppContext): ApiCo
         if (!abortController.signal.aborted) {
           abortController.abort();
         }
-        clearInterval(pingInterval);
+        if (pingInterval) {
+          clearInterval(pingInterval);
+          pingInterval = undefined;
+        }
         req.log.info('ConnectionCleanup');
       };
 
@@ -143,6 +151,11 @@ export const makeApiController = ({ openai, models, config }: AppContext): ApiCo
         const finalChunk = makeOllamaChunk(requestedModel, '', true, finish_reason, finalToolCalls);
         res.write(makeSSEMessage(finalChunk));
         res.end();
+      } catch (error) {
+        req.log.error(error, 'ChatCompletionError');
+        if (!res.headersSent) {
+          throw error;
+        }
       } finally {
         cleanup();
       }

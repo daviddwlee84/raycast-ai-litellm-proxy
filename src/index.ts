@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { makeApp } from './app';
 import { getConfig } from './config';
 import { loadModels } from './data/models';
+import { ModelStore } from './data/model-store';
 import { makeLogger } from './logger';
 import { makeMiddleware } from './middleware';
 
@@ -11,13 +12,14 @@ async function main() {
 
   // Load models from LiteLLM
   const models = await loadModels(config.baseUrl, config.apiKey, config.modelRefreshInterval);
+  const modelStore = new ModelStore(models);
 
   const middleware = makeMiddleware(logger);
   const openai = new OpenAI({
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
   });
-  const app = makeApp({ config, middleware, models, openai });
+  const app = makeApp({ config, middleware, models, modelStore, openai });
 
   app.listen(config.port, () => {
     logger.info(`Server is up on port ${config.port}`);

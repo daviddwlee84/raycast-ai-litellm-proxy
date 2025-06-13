@@ -1,99 +1,66 @@
 # Raycast AI LiteLLM Proxy
 
-Connect your LiteLLM instance to Raycast AI. Use any model supported by LiteLLM with your own API keys.
+Connect any LiteLLM model to Raycast AI instantly. No Raycast Pro required.
 
-**Benefits**: No Raycast Pro required, dynamic model discovery, works with AI Chat, Commands, and Quick AI
+> **Built on**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Thank you for the foundation!
 
-> **Forked from**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Enhanced for LiteLLM with zero-maintenance model detection
+## Quick Start (2 minutes)
 
-## Quick Start
+**Prerequisites**: Docker + running LiteLLM server
 
-**Prerequisites**: Docker, running LiteLLM server, Raycast
-
-1. **Clone and configure**:
-
+1. **Setup**:
    ```bash
    git clone https://github.com/d-cu/raycast-ai-litellm-proxy.git
    cd raycast-ai-litellm-proxy
    cp .env.example .env
    ```
 
-2. **Edit `.env`**:
-
+2. **Configure** (edit `.env`):
    ```bash
-   API_KEY=your-litellm-generated-key-here
+   API_KEY=your-litellm-api-key
    BASE_URL=http://host.docker.internal:4000/v1
    ```
 
-3. **Start proxy**:
-
+3. **Start**:
    ```bash
    docker compose up -d
    ```
 
-4. **Configure Raycast**:
-   - Settings → Extensions → AI
-   - Set **Ollama Host** to: `localhost:11435`
+4. **Connect Raycast**:
+   - Raycast Settings → Extensions → AI
+   - Set **Ollama Host**: `localhost:11435`
    - Enable **Ollama** and **AI Extensions**
 
-Your LiteLLM models will now appear in Raycast.
-
-## Configuration
-
-All settings are optional except `API_KEY` and `BASE_URL`:
-
-```bash
-API_KEY=your-litellm-generated-key-here
-BASE_URL=http://host.docker.internal:4000/v1
-PORT=3000                        # Proxy port (default: 3000)
-MODEL_REFRESH_INTERVAL=300000    # Model cache refresh in ms (default: 5 minutes)
-PING_INTERVAL=10000              # Streaming keep-alive in ms (default: 10 seconds)
-```
+**Done!** Your LiteLLM models now appear in Raycast AI.
 
 ## Troubleshooting
 
-- **Only seeing "GPT-3.5 Turbo"?** Check `docker compose logs` - likely connection issue
-- **401 Unauthorized?** Verify your `API_KEY` in `.env`
-- **Connection refused?** Use your IP instead: `BASE_URL=http://192.168.1.X:4000/v1`
-- **Models missing capabilities?** Restart proxy: `docker compose restart`
-- **Health check**: Visit `http://localhost:11435/health` to verify proxy status
-- **After changes**: Run `docker compose restart`
+| Issue | Solution |
+|-------|----------|
+| Only see fallback models | Check `docker compose logs` - connection issue |
+| 401 Unauthorized | Verify `API_KEY` in `.env` |
+| Connection refused | Use your IP: `BASE_URL=http://192.168.1.X:4000/v1` |
+| Missing models | `docker compose restart` |
 
-## Features
+**Health check**: `http://localhost:11435/health`
 
-**Supported:**
+## Optional Configuration
 
-- Dynamic model discovery from LiteLLM
-- Accurate context lengths and capabilities
-- Vision models (automatically detected)
-- Tool calling and AI Extensions
-- Streaming responses
-- Health monitoring endpoint
-
-**Not Supported:**
-
-- Thinking process display
-- Some remote tools like `@web`
-
-## Development
+Add to `.env` if needed:
 
 ```bash
-npm run dev       # Start development server
-npm run build     # Build for production
-npm run lint      # Check code style
-npm run format    # Format code
-npm run typecheck # Type checking
+PORT=3000                        # Proxy port (default: 3000)
+MODEL_REFRESH_INTERVAL=300000    # Model refresh (default: 5 min)
 ```
 
-## Attribution
+## What You Get
 
-This project builds on [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen).
+- **All LiteLLM models** in Raycast automatically
+- **Vision models** work with image inputs
+- **Tool calling** and AI Extensions supported
+- **Zero maintenance** - models auto-update every 5 minutes
+- **Production ready** - memory leak fixes, error recovery
 
-**Key Enhancements:**
+---
 
-- Smart model detection using LiteLLM's `/model/info` endpoint
-- Zero maintenance with automatic model updates
-- Health monitoring and enhanced error handling
-- Configurable refresh intervals and connection settings
-
-Thank you [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) for the solid foundation!
+**Credits**: Built on [@miikkaylisiurunen](https://github.com/miikkaylisiurunen)'s excellent [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy). Enhanced for LiteLLM with performance and reliability improvements.

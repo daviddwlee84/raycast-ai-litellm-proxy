@@ -1,6 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod/v4';
 import { HttpError } from '../errors';
+import {
+  ModelNotFoundError,
+  LiteLLMConnectionError,
+  LiteLLMAuthError,
+  LiteLLMNotFoundError,
+  StreamingError,
+} from '../errors/custom-errors';
 import { HttpLogger, pinoHttp } from 'pino-http';
 import { Logger } from 'pino';
 import { randomUUID } from 'node:crypto';
@@ -64,6 +71,26 @@ export const makeMiddleware = (logger: Logger): Middleware => {
       if (err instanceof HttpError) {
         req.log.warn(err, loggerMsg);
         res.status(err.status).send({ status: err.status, error: err.message, name: err.name });
+        return;
+      } else if (err instanceof ModelNotFoundError) {
+        req.log.warn(err, loggerMsg);
+        res.status(400).send({ status: 400, error: err.message, name: err.name });
+        return;
+      } else if (err instanceof LiteLLMAuthError) {
+        req.log.error(err, loggerMsg);
+        res.status(401).send({ status: 401, error: err.message, name: err.name });
+        return;
+      } else if (err instanceof LiteLLMNotFoundError) {
+        req.log.error(err, loggerMsg);
+        res.status(404).send({ status: 404, error: err.message, name: err.name });
+        return;
+      } else if (err instanceof LiteLLMConnectionError) {
+        req.log.error(err, loggerMsg);
+        res.status(503).send({ status: 503, error: err.message, name: err.name });
+        return;
+      } else if (err instanceof StreamingError) {
+        req.log.error(err, loggerMsg);
+        res.status(500).send({ status: 500, error: err.message, name: err.name });
         return;
       } else if (err instanceof ZodError) {
         req.log.warn(err, loggerMsg);
