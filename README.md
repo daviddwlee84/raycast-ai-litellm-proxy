@@ -12,7 +12,7 @@ Connect your LiteLLM instance to Raycast AI. Use any model from OpenAI, Anthropi
 
 1. **Clone and configure**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/raycast-ai-litellm-proxy.git
+   git clone https://github.com/d-cu/raycast-ai-litellm-proxy.git
    cd raycast-ai-litellm-proxy
    cp .env.example .env
    ```
