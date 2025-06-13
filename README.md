@@ -1,16 +1,12 @@
 # Raycast AI LiteLLM Proxy
 
-Connect any LiteLLM model to Raycast AI instantly. No Raycast Pro required.
+Use any LiteLLM model in Raycast AI without a subscription.
 
-**Works with**: Local models, hosted APIs, and self-hosted servers. Automatically discovers models with vision and tool calling support.
-
-> **Built on**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Thank you for the foundation!
-
-## Quick Start (2 minutes)
+## Quick Start
 
 **Prerequisites**: Docker + running LiteLLM server
 
-1. **Setup**:
+1. **Clone and setup**:
    ```bash
    git clone https://github.com/d-cu/raycast-ai-litellm-proxy.git
    cd raycast-ai-litellm-proxy
@@ -22,56 +18,41 @@ Connect any LiteLLM model to Raycast AI instantly. No Raycast Pro required.
    API_KEY=your-litellm-api-key
    BASE_URL=http://host.docker.internal:4000/v1
    ```
+   
+   > **Common fix**: If `host.docker.internal` doesn't work, use your IP:
+   > ```bash
+   > BASE_URL=http://192.168.1.X:4000/v1  # Replace X with your IP
+   > ```
 
-3. **Start**:
+3. **Start and connect**:
    ```bash
    docker compose up -d
    ```
-
-4. **Connect Raycast**:
-   - Raycast Settings → Extensions → AI
+   
+   In Raycast Settings → Extensions → AI:
    - Set **Ollama Host**: `localhost:11435`
    - Enable **Ollama** and **AI Extensions**
 
-**Done!** Your LiteLLM models now appear in Raycast AI.
+**Done!** Your models now appear in Raycast AI.
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| Only see fallback models | Check `docker compose logs` - connection issue |
-| 401 Unauthorized | Verify `API_KEY` in `.env` |
-| Connection refused | Use your IP: `BASE_URL=http://192.168.1.X:4000/v1` |
-| Missing models | `docker compose restart` |
+| Only see fallback models | Replace `host.docker.internal` with your IP in `.env` |
+| Connection refused | Use `BASE_URL=http://192.168.1.X:4000/v1` |
+| No models appear | Verify `API_KEY` and restart: `docker compose restart` |
 
-**Health check**: `http://localhost:11435/health`
+## Configuration
 
-## Optional Configuration
-
-Add to `.env` if needed:
+Optional `.env` settings:
 
 ```bash
 PORT=3000                        # Proxy port (default: 3000)
-MODEL_REFRESH_INTERVAL=300000    # Model refresh (default: 5 min)
+MODEL_REFRESH_INTERVAL=300000    # Model refresh interval (default: 5 min)
+PING_INTERVAL=10000              # Connection keepalive (default: 10 sec)
 ```
-
-## How It Works
-
-```
-Raycast AI → Proxy (localhost:11435) → LiteLLM Server → Your Models
-          Ollama API              OpenAI API
-```
-
-The proxy automatically discovers available models every 5 minutes and translates between Raycast's Ollama-compatible format and LiteLLM's OpenAI format.
-
-## What You Get
-
-- **Auto-discovery** - All LiteLLM models appear in Raycast automatically
-- **Smart detection** - Vision and tool calling capabilities detected per model
-- **Streaming responses** - Real-time chat with connection keepalive
-- **Error recovery** - Graceful fallbacks when LiteLLM is unavailable
-- **Zero maintenance** - Models refresh automatically, memory optimized
 
 ---
 
-**Credits**: Built on [@miikkaylisiurunen](https://github.com/miikkaylisiurunen)'s excellent [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy). Enhanced for LiteLLM with performance and reliability improvements.
+> **Built on**: [@miikkaylisiurunen](https://github.com/miikkaylisiurunen)'s excellent [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) — Thank you for the foundation! Enhanced for LiteLLM with performance and reliability improvements.
