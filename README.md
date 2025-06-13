@@ -4,7 +4,7 @@ Connect your LiteLLM instance to Raycast AI. Use any model from OpenAI, Anthropi
 
 ✨ **Benefits**: No Raycast Pro required • Dynamic model discovery with accurate metadata • Automatic capability detection • Works with AI Chat, Commands, and Quick AI
 
-> Based on [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen)
+> **🔗 Forked from**: [raycast-ai-openrouter-proxy](https://github.com/miikkaylisiurunen/raycast-ai-openrouter-proxy) by [@miikkaylisiurunen](https://github.com/miikkaylisiurunen) — Enhanced for LiteLLM with zero-maintenance model detection
 
 ![AI Chat](./assets/ai-chat.jpg)
 
