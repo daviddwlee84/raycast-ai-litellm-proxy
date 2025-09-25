@@ -37,6 +37,11 @@ model_list:
 
 litellm_settings:
   drop_params: True
+  # if you want to start sending LLM Logs to Langfuse. Make sure to set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in your env
+  # NOTE: since AI commands (you need to create one yourself, the built-in one can't change model nor prompt) won't preserve chat history
+  # Use Langfuse for tracing can mitigate that (and additionally, you can see how Raycast form the system prompt, etc.)
+  # https://langfuse.com/pricing
+  success_callback: ["langfuse"]
   # success_callback: ["mlflow"]
   # failure_callback: ["mlflow"]
 

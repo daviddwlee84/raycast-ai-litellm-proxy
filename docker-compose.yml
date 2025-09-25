@@ -18,6 +18,9 @@ services:
       - BASE_URL=http://litellm:4000/v1
       - MODEL_REFRESH_INTERVAL=${MODEL_REFRESH_INTERVAL:-300000} # Model refresh interval (default: 5 min)
       - PING_INTERVAL=10000 # Connection keepalive (default: 10 sec)
+    depends_on:
+      litellm:
+        condition: service_healthy
 
   # BUG: somehow cannot open UI (not sure if it is caused by the config.yaml file)
   litellm:
