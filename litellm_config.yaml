@@ -1,0 +1,44 @@
+aws_common: &aws_common
+  aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+  aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+  aws_region_name: os.environ/AWS_REGION_NAME
+
+openai_key: &openai_key
+  api_key: os.environ/OPENAI_API_KEY
+
+gemini_key: &gemini_key
+  api_key: os.environ/GEMINI_API_KEY
+
+model_list:
+  - model_name: bedrock-nova-pro
+    litellm_params:
+      model: bedrock/amazon.nova-pro-v1:0
+      <<: *aws_common
+
+  - model_name: bedrock-claude-3-7
+    litellm_params:
+      model: bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+      <<: *aws_common
+
+  - model_name: bedrock-claude-3-5-haiku
+    litellm_params:
+      model: bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0
+      <<: *aws_common
+
+  - model_name: gemini-2.0-flash-exp
+    litellm_params:
+      model: gemini/gemini-2.0-flash-exp
+      <<: *gemini_key
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      <<: *openai_key
+
+litellm_settings:
+  drop_params: True
+  # success_callback: ["mlflow"]
+  # failure_callback: ["mlflow"]
+
+general_settings: 
+  master_key: sk-1234

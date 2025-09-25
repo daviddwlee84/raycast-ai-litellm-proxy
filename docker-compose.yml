@@ -14,6 +14,70 @@ services:
     environment:
       # Environment variables are loaded from .env file
       # Copy .env.example to .env and update with your values
-      - API_KEY=${API_KEY}
-      - BASE_URL=${BASE_URL}
-      - MODEL_REFRESH_INTERVAL=${MODEL_REFRESH_INTERVAL}
+      - API_KEY=${LITELLM_MASTER_KEY:-sk-1234}
+      - BASE_URL=http://litellm:4000/v1
+      - MODEL_REFRESH_INTERVAL=${MODEL_REFRESH_INTERVAL:-300000} # Model refresh interval (default: 5 min)
+      - PING_INTERVAL=10000 # Connection keepalive (default: 10 sec)
+
+  # BUG: somehow cannot open UI (not sure if it is caused by the config.yaml file)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    #########################################
+    ## Uncomment these lines to start proxy with a config.yaml file ##
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    command:
+      - "--config=/app/config.yaml"
+    ##############################################
+    ports:
+      - 4000:4000 # Map the container port to the host, change the host port if necessary
+    environment:
+      DATABASE_URL: postgresql://llmproxy:dbpassword9090@db:5432/litellm
+      STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
+      UI_USERNAME: ${UI_USERNAME:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:-change-me}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-1234}
+      # MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+    env_file:
+      - .env # Load local .env file
+    depends_on:
+      - db # Indicates that this service depends on the 'db' service, ensuring 'db' starts first
+    healthcheck:
+      # Defines the health check configuration for the container
+      test:
+        - CMD-SHELL
+        - wget --no-verbose --tries=1 http://localhost:4000/health/liveliness ||
+          exit 1
+        # Command to execute for health check
+      interval: 30s # Perform health check every 30 seconds
+      timeout: 10s # Health check command times out after 10 seconds
+      retries: 3 # Retry up to 3 times if health check fails
+      start_period: 40s # Wait 40 seconds after container start before beginning health checks
+  db:
+    image: postgres:16
+    restart: always
+    container_name: litellm_db
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: llmproxy
+      POSTGRES_PASSWORD: dbpassword9090
+    # ports:
+    #   - 15432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persists Postgres data across container restarts
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -d litellm -U llmproxy
+      interval: 1s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgres_data:
+    name: litellm_postgres_data # Named volume for Postgres data persistence
+x-dockge:
+  urls:
+    - https://github.com/BerriAI/litellm/blob/main/docker-compose.yml
+    - https://docs.litellm.ai/docs/proxy/deploy#quick-start
+networks: {}
